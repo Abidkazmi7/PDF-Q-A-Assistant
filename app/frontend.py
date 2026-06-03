@@ -18,25 +18,34 @@ if "pdf_path" not in st.session_state:
 # Sidebar - PDF Loader
 st.sidebar.title("📄 PDF Loader")
 
-pdf_path = st.sidebar.text_input(
-    "Enter PDF file path (backend accessible path):"
+uploaded_file = st.sidebar.file_uploader(
+    "Upload PDF",
+    type=["pdf"]
 )
 
 if st.sidebar.button("Load PDF"):
-    if not pdf_path:
-        st.sidebar.error("Please enter a PDF path")
+    if uploaded_file is None:
+        st.sidebar.error("Please upload a PDF")
     else:
         with st.spinner("Loading PDF..."):
             try:
+                files = {
+                    "file": (
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),       # raw PDF bytes
+                        "application/pdf"
+                    )
+                }
+
                 res = requests.post(
                     f"{API_BASE}/load-pdf",
-                    params={"pdf_path": pdf_path}
+                    files=files
                 )
 
                 if res.status_code == 200:
                     data = res.json()
                     st.session_state.pdf_loaded = True
-                    st.session_state.pdf_path = pdf_path
+                    st.session_state.pdf_path = uploaded_file.name
 
                     st.sidebar.success(
                         f"Loaded! Chunks: {data['chunks']}"

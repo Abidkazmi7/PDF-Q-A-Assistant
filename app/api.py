@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
+import tempfile
 from pydantic import BaseModel
 
 from app.ingestion.pdf_loader import extract_text
@@ -6,6 +7,8 @@ from app.ingestion.chunker import create_chunks
 from app.retrieval.embedder import embed_chunks, embed_query
 from app.retrieval.retriever import chunk_retrieval
 from app.retrieval.ranker import top_sentences
+
+import os
 
 app = FastAPI()
 
@@ -18,12 +21,24 @@ class QueryRequest(BaseModel):
 
 # Load PDF
 @app.post("/load-pdf")
-def load_pdf(pdf_path: str):
+async def load_pdf(file: UploadFile = File(...)):
     global chunks, chunk_embeddings
 
-    text = extract_text(pdf_path)
-    chunks = create_chunks(text)
-    chunk_embeddings = embed_chunks(chunks)
+    contents = await file.read()
+
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".pdf"
+    ) as temp_file:
+        temp_file.write(contents)
+        temp_path = temp_file.name
+
+    try:
+        text = extract_text(temp_path)
+        chunks = create_chunks(text)
+        chunk_embeddings = embed_chunks(chunks)
+    finally:
+        os.remove(temp_path)
 
     return {
         "message": "PDF loaded successfully",
